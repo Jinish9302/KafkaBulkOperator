@@ -1,0 +1,46 @@
+name: CI with Jest + Kafka (Docker Compose)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - '**/feature-*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start Kafka (docker-compose)
+        run: |
+          docker compose up -d --build
+          echo "Waiting for Kafka to become available..."
+          for i in {1..20}; do
+            if nc -z localhost 9092; then
+              echo "✅ Kafka is up!"
+              break
+            fi
+            echo "Waiting ($i/20)..."
+            sleep 3
+          done
+
+      - name: Run Jest tests
+        run: npm test -- --runInBand
+
+      - name: Stop containers
+        if: always()
+        run: docker compose down -v

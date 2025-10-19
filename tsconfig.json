@@ -5,9 +5,20 @@
         "declaration": true,
         "outDir": "./dist",
         "strict": true,
+        "types": [
+            "node",
+            "jest"
+        ],
         "esModuleInterop": true
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "tests",
+        "index.ts",
+        "check-app/checkBaseModule.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
     ]
 }

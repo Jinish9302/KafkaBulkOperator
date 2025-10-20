@@ -3,4 +3,4 @@ tests/
 .vscode/
 check-app/
 docker-compose.yml
-jest.config.js
+jest.config.ts

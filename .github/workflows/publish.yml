@@ -26,6 +26,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Fetch full history so we can rebase and push safely from the runner
+          fetch-depth: 0
+          # keep credentials so we can push back to the repo
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -84,7 +89,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Ensure we integrate remote changes before pushing to avoid rejections
           git fetch origin
-          git pull --rebase origin ${{ github.ref_name }} || true
+          git pull --rebase origin ${{ github.ref_name }}
           git push origin HEAD
 
       - name: Create and push tag

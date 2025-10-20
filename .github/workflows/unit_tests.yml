@@ -89,14 +89,7 @@ jobs:
         if: always()
         run: |
           mkdir -p .cache
-          echo "--- docker images ---"
-          docker images --format 'table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}' || true
-          echo "--- docker compose images (quiet) ---"
-          docker compose images --quiet || true
-          echo "--- docker compose images (full) ---"
-          docker compose images || true
-          echo "--- .cache contents ---"
-          ls -la .cache || true
+
           # Try to determine images to save. Prefer docker compose images, but
           # fall back to parsing docker-compose.yml for `image:` entries. This
           # works when `docker compose images` returns nothing (e.g. different
@@ -135,7 +128,6 @@ jobs:
           if [ -n "$IMG_LIST" ]; then
             echo "Saving images: $IMG_LIST"
             docker save $IMG_LIST -o .cache/docker-images.tar || true
-            echo "Saved docker-images.tar size:" $(du -sh .cache/docker-images.tar || true)
           else
             echo "No images found to save"
           fi

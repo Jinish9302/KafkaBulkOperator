@@ -21,10 +21,10 @@
   },
   "homepage": "https://github.com/Jinish9302/KafkaBulkOperator#readme",
   "dependencies": {
-    "@jtriv9427/kafkabulkoperator": "^1.0.5",
     "kafkajs": "^2.2.4"
   },
   "devDependencies": {
+    "@jtriv9427/kafkabulkoperator": "^1.0.7",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.5.2",
     "jest": "^30.2.0",

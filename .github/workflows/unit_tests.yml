@@ -47,9 +47,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/docker-images.tar
+          # Primary key includes a hash of docker-compose.yml so the cache updates when compose changes
           key: ${{ runner.os }}-docker-images-${{ hashFiles('docker-compose.yml') }}
+          # Fallback to a stable 'latest' key if the exact hashed cache isn't available
           restore-keys: |
-            ${{ runner.os }}-docker-images-
+            ${{ runner.os }}-docker-images-latest
 
       - name: Load cached Docker images if present
         run: |
@@ -90,14 +92,35 @@ jobs:
           # Save images referenced by docker-compose to a tar archive so they can be cached
           IMAGES=$(docker compose images --quiet || true)
           if [ -n "$IMAGES" ]; then
-            # docker save accepts multiple image names; write to a single tarball
-            docker save $IMAGES -o .cache/docker-images.tar || true
+            # Translate image IDs to repo:tag pairs when possible, otherwise keep IDs
+            IMG_LIST=""
+            for ID in $IMAGES; do
+              # docker inspect to get RepoTags for the image ID
+              TAGS=$(docker inspect --format='{{range .RepoTags}}{{.}} {{end}}' "$ID" 2>/dev/null || true)
+              if [ -n "$TAGS" ]; then
+                IMG_LIST="$IMG_LIST $TAGS"
+              else
+                IMG_LIST="$IMG_LIST $ID"
+              fi
+            done
+            # Trim leading space
+            IMG_LIST=$(echo "$IMG_LIST" | xargs)
+            if [ -n "$IMG_LIST" ]; then
+              echo "Saving images: $IMG_LIST"
+              docker save $IMG_LIST -o .cache/docker-images.tar || true
+              echo "Saved docker-images.tar size:" $(du -sh .cache/docker-images.tar || true)
+            else
+              echo "Image list resolved empty; not saving"
+            fi
+          else
+            echo "No images found to save"
           fi
 
       - name: Cache saved Docker images
         uses: actions/cache@v4
         with:
           path: .cache/docker-images.tar
+          # Save under the hash-based key so a new cache is created when docker-compose.yml changes
           key: ${{ runner.os }}-docker-images-${{ hashFiles('docker-compose.yml') }}
           restore-keys: |
-            ${{ runner.os }}-docker-images-
+            ${{ runner.os }}-docker-images-latest

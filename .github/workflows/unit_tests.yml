@@ -97,29 +97,45 @@ jobs:
           docker compose images || true
           echo "--- .cache contents ---"
           ls -la .cache || true
-          # Save images referenced by docker-compose to a tar archive so they can be cached
+          # Try to determine images to save. Prefer docker compose images, but
+          # fall back to parsing docker-compose.yml for `image:` entries. This
+          # works when `docker compose images` returns nothing (e.g. different
+          # compose project name or environment differences).
           IMAGES=$(docker compose images --quiet || true)
-          if [ -n "$IMAGES" ]; then
-            # Translate image IDs to repo:tag pairs when possible, otherwise keep IDs
-            IMG_LIST=""
-            for ID in $IMAGES; do
-              # docker inspect to get RepoTags for the image ID
-              TAGS=$(docker inspect --format='{{range .RepoTags}}{{.}} {{end}}' "$ID" 2>/dev/null || true)
-              if [ -n "$TAGS" ]; then
-                IMG_LIST="$IMG_LIST $TAGS"
-              else
-                IMG_LIST="$IMG_LIST $ID"
-              fi
-            done
-            # Trim leading space
-            IMG_LIST=$(echo "$IMG_LIST" | xargs)
-            if [ -n "$IMG_LIST" ]; then
-              echo "Saving images: $IMG_LIST"
-              docker save $IMG_LIST -o .cache/docker-images.tar || true
-              echo "Saved docker-images.tar size:" $(du -sh .cache/docker-images.tar || true)
-            else
-              echo "Image list resolved empty; not saving"
+
+          if [ -z "$IMAGES" ]; then
+            echo "docker compose images returned empty; extracting image names from docker-compose.yml"
+            # Extract lines like 'image: repo/name:tag' (handles quoted values)
+            FILE_IMAGES=$(grep -E '^[[:space:]]*image:' docker-compose.yml || true)
+            if [ -n "$FILE_IMAGES" ]; then
+              IMAGES=$(echo "$FILE_IMAGES" | sed -E 's/.*image:[[:space:]]*//; s/["\'\'']//g' | xargs)
             fi
+          fi
+
+          # Build the final list of images to save by checking local presence.
+          IMG_LIST=""
+          for I in $IMAGES; do
+            if [ -n "$I" ] && docker image inspect "$I" >/dev/null 2>&1; then
+              IMG_LIST="$IMG_LIST $I"
+            else
+              echo "Image not present locally: $I"
+            fi
+          done
+
+          # If still empty, as a last resort try to save known Kafka image(s)
+          if [ -z "$IMG_LIST" ]; then
+            FALLBACK=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'apache/kafka' | head -n1 || true)
+            if [ -n "$FALLBACK" ]; then
+              IMG_LIST="$FALLBACK"
+              echo "Using fallback image: $FALLBACK"
+            fi
+          fi
+
+          IMG_LIST=$(echo "$IMG_LIST" | xargs)
+          if [ -n "$IMG_LIST" ]; then
+            echo "Saving images: $IMG_LIST"
+            docker save $IMG_LIST -o .cache/docker-images.tar || true
+            echo "Saved docker-images.tar size:" $(du -sh .cache/docker-images.tar || true)
           else
             echo "No images found to save"
           fi

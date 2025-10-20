@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/Jinish9302/KafkaBulkOperator#readme",
   "dependencies": {
+    "@jtriv9427/kafkabulkoperator": "^1.0.5",
     "kafkajs": "^2.2.4"
   },
   "devDependencies": {

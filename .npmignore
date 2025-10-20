@@ -2,7 +2,5 @@ tests/
 .github/
 .vscode/
 check-app/
-src/
 docker-compose.yml
 jest.config.js
-tsconfig.json

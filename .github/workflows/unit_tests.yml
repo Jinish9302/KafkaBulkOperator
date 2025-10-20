@@ -1,0 +1,90 @@
+name: Unit Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - '**/feature-*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1 — Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2 — Setup Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # Step 3 — Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Step 4 — Build TypeScript package
+      - name: Build package
+        run: npm run build
+
+      # Step 5 — Start Kafka (Docker Compose)
+      - name: Restore Docker images cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/docker-images.tar
+          key: ${{ runner.os }}-docker-images-${{ hashFiles('docker-compose.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-images-
+
+      - name: Load cached Docker images if present
+        if: exists('.cache/docker-images.tar')
+        run: |
+          echo "Found cached Docker images archive, loading..."
+          docker load -i .cache/docker-images.tar || true
+
+      - name: Start Kafka
+        run: |
+          # Build/pull images (use cached images when available)
+          docker compose up -d --build
+          echo "Waiting for Kafka broker..."
+          for i in {1..30}; do
+            if nc -z localhost 9092; then
+              echo "✅ Kafka is ready!"
+              break
+            fi
+            echo "⏳ Waiting... ($i/30)"
+            sleep 3
+          done
+
+      # Step 6 — Run Jest tests
+      - name: Run Jest tests
+        run: npm test -- --runInBand
+
+      # Step 7 — Clean up Docker containers
+      - name: Stop containers
+        if: always()
+        run: docker compose down -v
+
+      - name: Save Docker images cache
+        if: always()
+        run: |
+          mkdir -p .cache
+          # Save images referenced by docker-compose to a tar archive so they can be cached
+          IMAGES=$(docker compose images --quiet || true)
+          if [ -n "$IMAGES" ]; then
+            # docker save accepts multiple image names; write to a single tarball
+            docker save $IMAGES -o .cache/docker-images.tar || true
+          fi
+
+      - name: Cache saved Docker images
+        uses: actions/cache@v4
+        with:
+          path: .cache/docker-images.tar
+          key: ${{ runner.os }}-docker-images-${{ hashFiles('docker-compose.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-images-

@@ -63,7 +63,7 @@ jobs:
       - name: Increment version
         id: bump
         run: |
-          npm version ${{ inputs.release_type }} --no-push -m "chore(release): %s"
+          npm version ${{ inputs.release_type }} --no-push -m 'chore(release): %s'
           echo "NEW_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_ENV
 
       - name: Push version bump

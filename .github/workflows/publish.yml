@@ -54,6 +54,12 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Configure git user
+        run: |
+          # Set a repo-local git identity so `npm version` can commit in CI
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Increment version
         id: bump
         run: |

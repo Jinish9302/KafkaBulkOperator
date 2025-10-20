@@ -63,14 +63,31 @@ jobs:
       - name: Increment version
         id: bump
         run: |
-          npm version ${{ inputs.release_type }} --no-push -m 'chore(release): %s'
-          echo "NEW_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_ENV
+          # Update package.json version but avoid npm creating the commit/tag itself
+          npm version ${{ inputs.release_type }} --no-git-tag-version
+
+          # Read the new version from package.json
+          NEW_VERSION=$(node -p "require('./package.json').version")
+
+          # Stage package files (package-lock.json may or may not exist)
+          git add package.json package-lock.json || true
+
+          # Commit with a message that includes the new version (safe quoting)
+          git commit -m "chore(release): ${NEW_VERSION}"
+
+          # Export the computed version for later steps
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
       - name: Push version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git push origin HEAD
+
+      - name: Create and push tag
+        run: |
+          # Create an annotated tag and push it
+          git tag -a "v${{ env.NEW_VERSION }}" -m "Release v${{ env.NEW_VERSION }}"
           git push origin "v${{ env.NEW_VERSION }}"
 
       - name: Create GitHub Release

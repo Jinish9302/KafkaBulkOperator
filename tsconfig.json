@@ -13,12 +13,12 @@
     },
     "include": [
         "src/**/*",
-        "tests",
         "index.ts",
-        "check-app/checkBaseModule.ts"
     ],
     "exclude": [
         "node_modules",
-        "dist"
+        "dist",
+        "check-app/",
+        "tests"
     ]
 }

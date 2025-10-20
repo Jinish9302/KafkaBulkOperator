@@ -42,10 +42,13 @@ jobs:
             ${{ runner.os }}-docker-images-
 
       - name: Load cached Docker images if present
-        if: exists('.cache/docker-images.tar')
         run: |
-          echo "Found cached Docker images archive, loading..."
-          docker load -i .cache/docker-images.tar || true
+          if [ -f .cache/docker-images.tar ]; then
+            echo "Found cached Docker images archive, loading..."
+            docker load -i .cache/docker-images.tar || true
+          else
+            echo "No cached Docker images archive found"
+          fi
 
       - name: Start Kafka
         run: |

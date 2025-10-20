@@ -89,6 +89,14 @@ jobs:
         if: always()
         run: |
           mkdir -p .cache
+          echo "--- docker images ---"
+          docker images --format 'table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}' || true
+          echo "--- docker compose images (quiet) ---"
+          docker compose images --quiet || true
+          echo "--- docker compose images (full) ---"
+          docker compose images || true
+          echo "--- .cache contents ---"
+          ls -la .cache || true
           # Save images referenced by docker-compose to a tar archive so they can be cached
           IMAGES=$(docker compose images --quiet || true)
           if [ -n "$IMAGES" ]; then

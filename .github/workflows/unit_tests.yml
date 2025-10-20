@@ -47,9 +47,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/docker-images.tar
+          # Primary key includes a hash of docker-compose.yml so the cache updates when compose changes
           key: ${{ runner.os }}-docker-images-${{ hashFiles('docker-compose.yml') }}
+          # Fallback to a stable 'latest' key if the exact hashed cache isn't available
           restore-keys: |
-            ${{ runner.os }}-docker-images-
+            ${{ runner.os }}-docker-images-latest
 
       - name: Load cached Docker images if present
         run: |
@@ -92,12 +94,16 @@ jobs:
           if [ -n "$IMAGES" ]; then
             # docker save accepts multiple image names; write to a single tarball
             docker save $IMAGES -o .cache/docker-images.tar || true
+            echo "Saved docker-images.tar size:" $(du -sh .cache/docker-images.tar || true)
+          else
+            echo "No images found to save"
           fi
 
       - name: Cache saved Docker images
         uses: actions/cache@v4
         with:
           path: .cache/docker-images.tar
+          # Save under the hash-based key so a new cache is created when docker-compose.yml changes
           key: ${{ runner.os }}-docker-images-${{ hashFiles('docker-compose.yml') }}
           restore-keys: |
-            ${{ runner.os }}-docker-images-
+            ${{ runner.os }}-docker-images-latest

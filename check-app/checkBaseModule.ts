@@ -1,4 +1,4 @@
-import KafkaBulkConsumer from "../src/modules/baseModule";
+import KafkaBulkConsumer from "../src/baseModule";
 
 let consumer = new KafkaBulkConsumer({
   clientId: "test-client",

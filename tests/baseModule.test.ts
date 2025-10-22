@@ -1,4 +1,4 @@
-import KafkaBulkConsumer from "../src/modules/baseModule";
+import KafkaBulkConsumer from "../src/baseModule";
 
 jest.useFakeTimers();
 
@@ -36,11 +36,12 @@ describe("KafkaBulkConsumer (unit)", () => {
 		__testConsumers.push(consumer);
 
 		// Simulate receiving messages by pushing into buffer and calling private flush
-		(consumer as any).buffer.push(1, 2);
-		await (consumer as any).flush();
+		(consumer as any).bufferManager.push(1);
+		(consumer as any).bufferManager.push(2);
+		await (consumer as any).bufferManager.flush();
 
 		expect(processed).toEqual([1, 2]);
-		expect((consumer as any).buffer.length).toBe(0);
+		expect((consumer as any).bufferManager.buffer.length).toBe(0);
 	});
 
 	test("flush is not triggered before the interval elapses", async () => {
@@ -58,9 +59,9 @@ describe("KafkaBulkConsumer (unit)", () => {
 		});
 
 		__testConsumers.push(consumer);
-		(consumer as any).startTimer();
+		(consumer as any).bufferManager.startFlushTimer();
 
-		(consumer as any).buffer.push("x");
+		(consumer as any).bufferManager.buffer.push("x");
 		// Advance only half the interval
 		jest.advanceTimersByTime(500);
 
@@ -96,10 +97,11 @@ describe("KafkaBulkConsumer (unit)", () => {
 
 		// Track consumer for teardown and start the timer (uses private startTimer)
 		__testConsumers.push(consumer);
-		(consumer as any).startTimer();
+		(consumer as any).bufferManager.startFlushTimer();
 
 		// Push messages and advance timers
-		(consumer as any).buffer.push("a", "b");
+		(consumer as any).bufferManager.push("a");
+		(consumer as any).bufferManager.push("b");
 		jest.advanceTimersByTime(1000);
 
 		// Allow the scheduled async flush to run

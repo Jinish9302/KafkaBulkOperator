@@ -1,1 +1,1 @@
-export * from "./src/modules/baseModule";
+export { KafkaBulkConsumer, BulkConsumerOptions } from "./src/baseModule";

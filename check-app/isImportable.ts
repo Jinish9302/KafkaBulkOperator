@@ -7,7 +7,7 @@ let consumer = new KafkaBulkConsumer({
   groupId: "test-group",
   topic: "test-topic",
   batchSize: 10,
-  flushIntervalMs: 10000,
+  flushIntervalMs: 5000,
   processBatch: async (messages: any[]) => {
     console.log("Processing batch of messages:", messages);
   },

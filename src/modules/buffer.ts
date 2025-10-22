@@ -12,7 +12,7 @@ export class BufferManager {
   private bufferSizeInBytes: number = 0;
   private flushIntervalMs?: number;
   private flushTimer?: NodeJS.Timeout;
-  private flushAction: (buffer: any[]) => Promise<void>;
+  private flushAction: (buffer: any[]) => Promise<void> | void; // expect a promis<void> return type or a void return type
   private buffer: any[] = [];
   constructor(private options: BufferOptions) {
     if (
@@ -22,7 +22,6 @@ export class BufferManager {
       (!options.customThresholds ||
       options.customThresholds.length == 0)
     ) {
-      console.log("BufferManager initialization error: insufficient threshold options", options);
       throw new Error(
         "At least one threshold option from flushIntervalMs, maxBufferItems, maxBufferSizeInBytes or customThresholds (non-empty array of functions) must be specified"
       );
@@ -97,5 +96,8 @@ export class BufferManager {
   }
   push(item: any) {
     this.buffer.push(item);
+    if (this.isThresholdReached()) {
+      this.flush();
+    }
   }
 }

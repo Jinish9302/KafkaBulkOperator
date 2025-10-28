@@ -1,0 +1,6 @@
+tests/
+.github/
+.vscode/
+check-app/
+docker-compose.yml
+jest.config.ts

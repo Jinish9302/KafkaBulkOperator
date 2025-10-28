@@ -55,7 +55,7 @@ export class BufferManager {
       }
     }, this.flushIntervalMs);
   }
-  private clearFlushTimer() {
+  clearFlushTimer() {
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
       this.flushTimer = undefined;

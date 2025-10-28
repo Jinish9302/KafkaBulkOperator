@@ -1,117 +1,136 @@
-import KafkaBulkConsumer from "../src/baseModule";
+import { KafkaBulkConsumer } from "../src/baseModule";
+import { Kafka, Producer, Admin, Partitioners } from "kafkajs";
 
-jest.useFakeTimers();
+// jest.useFakeTimers();
+let consumer: KafkaBulkConsumer;
+let producer: Producer;
+let admin: Admin;
+let kafka: Kafka;
+let sampleSink: any[] = []
+let testInitialize = async () => {
+  kafka = new Kafka({
+    clientId: "test-client",
+    brokers: ["127.0.0.1:9092"],
+  });
+  admin = kafka.admin();
+  producer = kafka.producer({
+    createPartitioner: Partitioners.LegacyPartitioner,
+  });
+  consumer = new (KafkaBulkConsumer as any)({
+    clientId: "test-client",
+    brokers: ["127.0.0.1:9092"],
+    groupId: "test-group",
+    topic: "test-topic",
+    batchSize: 10,
+    flushIntervalMs: 1000,
+    flushAction: async (messages: any[]) => {
+      console.log("recieved messages: ", messages)
+      sampleSink.push(...messages);
+    },
+  });
+  try {
+    await admin.connect();
+  } catch (err) {
+    console.error("Failed to connect to Kafka Admin:", err);
+  }
+  try {
+    await producer.connect();
+  } catch (err) {
+    console.error("Failed to connect to Kafka Producer:", err);
+  }
+  try {
+    await consumer.start();
+  } catch (err) {
+    console.error("Failed to connect to Kafka Consumer:", err);
+  }
+  try {
+    if (!(await admin.listTopics()).includes("test-topic")) {
+      await admin.createTopics({
+        topics: [
+          { topic: "test-topic", numPartitions: 1, replicationFactor: 1 },
+        ],
+      });
+    } else {
+      console.log("test-topic already exists");
+    }
+  } catch (err) {
+    console.error("Failed to create Kafka topic:", err);
+  }
+};
 
-// Keep track of consumers created during tests so we can stop/disconnect them
-let __testConsumers: any[] = [];
+let testCleanup = async () => {
+  await producer.disconnect();
+  await admin.disconnect();
+  await consumer.stop();
+};
 
-afterEach(async () => {
-	for (const c of __testConsumers) {
-		try {
-			// stop() will clear interval and disconnect the Kafka consumer if connected
-			await (c as any).stop();
-		} catch (err) {
-			// ignore errors during teardown
-		}
-	}
-	__testConsumers = [];
-});
+beforeAll(() => {
+  return testInitialize();
+}, 20000);
+
+afterAll(() => {
+  return testCleanup();
+}, 20000);
 
 describe("KafkaBulkConsumer (unit)", () => {
-	test("flush calls processBatch with buffered messages and clears buffer", async () => {
-		const processed: any[] = [];
-		const consumer = new (KafkaBulkConsumer as any)({
-			clientId: "test-client",
-			brokers: ["127.0.0.1:9092"],
-			groupId: "test-group",
-			topic: "test-topic",
-			batchSize: 3,
-			flushIntervalMs: 10000,
-			processBatch: async (messages: any[]) => {
-				processed.push(...messages);
-			},
-		});
+  it("consumer should be defined", () => {
+    expect(consumer).toBeDefined();
+  });
 
-		// Track consumer for teardown
-		__testConsumers.push(consumer);
+  it("consumer should connect after consumer.start()", async () => {
+    expect(consumer.isConnected).toBe(true);
+  });
 
-		// Simulate receiving messages by pushing into buffer and calling private flush
-		(consumer as any).bufferManager.push(1);
-		(consumer as any).bufferManager.push(2);
-		await (consumer as any).bufferManager.flush();
-
-		expect(processed).toEqual([1, 2]);
-		expect((consumer as any).bufferManager.buffer.length).toBe(0);
-	});
-
-	test("flush is not triggered before the interval elapses", async () => {
-		const processed: any[] = [];
-		const consumer = new (KafkaBulkConsumer as any)({
-			clientId: "test-client",
-			brokers: ["127.0.0.1:9092"],
-			groupId: "test-group",
-			topic: "test-topic",
-			batchSize: 100,
-			flushIntervalMs: 1000,
-			processBatch: async (messages: any[]) => {
-				processed.push(...messages);
-			},
-		});
-
-		__testConsumers.push(consumer);
-		(consumer as any).bufferManager.startFlushTimer();
-
-		(consumer as any).bufferManager.buffer.push("x");
-		// Advance only half the interval
-		jest.advanceTimersByTime(500);
-
-		// Allow any microtasks to run
-		await Promise.resolve();
-		await Promise.resolve();
-
-		expect(processed).toEqual([]);
-
-		// Now advance to full interval and assert flush happened
-		jest.advanceTimersByTime(500);
-		await Promise.resolve();
-		await Promise.resolve();
-
-		expect(processed).toEqual(["x"]);
-
-		(global as any).clearInterval((consumer as any).timer);
-	});
-
-	test("timer flush triggers processBatch when interval elapses", async () => {
-		const processed: any[] = [];
-		const consumer = new (KafkaBulkConsumer as any)({
-			clientId: "test-client",
-			brokers: ["127.0.0.1:9092"],
-			groupId: "test-group",
-			topic: "test-topic",
-			batchSize: 100,
-			flushIntervalMs: 1000,
-			processBatch: async (messages: any[]) => {
-				processed.push(...messages);
-			},
-		});
-
-		// Track consumer for teardown and start the timer (uses private startTimer)
-		__testConsumers.push(consumer);
-		(consumer as any).bufferManager.startFlushTimer();
-
-		// Push messages and advance timers
-		(consumer as any).bufferManager.push("a");
-		(consumer as any).bufferManager.push("b");
-		jest.advanceTimersByTime(1000);
-
-		// Allow the scheduled async flush to run
-		await Promise.resolve();
-		await Promise.resolve();
-
-		expect(processed).toEqual(["a", "b"]);
-
-		// Clear interval to avoid leaving timers running
-		(global as any).clearInterval((consumer as any).timer);
-	});
+  it("consumer should be able to process the messages after threshold is reached", async () => {
+    sampleSink = [];
+    await producer.send({
+      topic: "test-topic",
+      messages: [
+        { value: "0" },
+        { value: "1" },
+        { value: "2" },
+        { value: "3" },
+        { value: "4" },
+        { value: "5" },
+        { value: "6" },
+        { value: "7" },
+        { value: "8" },
+        { value: "9" }
+      ],
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    sampleSink.sort()
+    expect(sampleSink).toEqual(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+  });
+  it("consumer should flush the buffer on flush()", async () => {
+    sampleSink = [];
+    await producer.send({
+      topic: "test-topic",
+      messages: [
+        { value: "0" },
+        { value: "1" },
+        { value: "2" }
+      ],
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await consumer.flush();
+    sampleSink.sort()
+    expect(sampleSink).toEqual(["0", "1", "2"]);
+  })
+  it("consumer should disconnect and flush the buffer on stop", async () => {
+    sampleSink = [];
+    await producer.send({
+      topic: "test-topic",
+      messages: [
+        { value: "0" },
+        { value: "1" },
+        { value: "2" }
+      ],
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await consumer.stop();
+    expect(consumer.isConnected).toBe(false);
+    sampleSink.sort()
+    expect(sampleSink).toEqual(["0", "1", "2"]);
+  }, 10000)
 });
-

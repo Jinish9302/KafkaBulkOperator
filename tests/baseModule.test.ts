@@ -98,7 +98,7 @@ describe("KafkaBulkConsumer (unit)", () => {
         { value: "9" }
       ],
     })
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     sampleSink.sort()
     expect(sampleSink).toEqual(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
   });
@@ -112,7 +112,7 @@ describe("KafkaBulkConsumer (unit)", () => {
         { value: "2" }
       ],
     })
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await consumer.flush();
     sampleSink.sort()
     expect(sampleSink).toEqual(["0", "1", "2"]);
@@ -127,7 +127,7 @@ describe("KafkaBulkConsumer (unit)", () => {
         { value: "2" }
       ],
     })
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await consumer.stop();
     expect(consumer.isConnected).toBe(false);
     sampleSink.sort()

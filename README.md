@@ -36,7 +36,7 @@ const consumer = new KafkaBulkConsumer<string>({
 	topic: 'my-topic',
 	batchSize: 100,
 	flushIntervalMs: 5000,
-	processBatch: async (messages) => {
+	flushAction: async (messages) => {
 		console.log('processing batch of', messages.length);
 		// handle messages (e.g. write to DB, call external API)
 	},
@@ -44,6 +44,8 @@ const consumer = new KafkaBulkConsumer<string>({
 
 await consumer.start();
 
+// Flush the buffer
+await consumer.flush()
 // Later, when shutting down
 await consumer.stop();
 ```
@@ -62,13 +64,17 @@ const consumer = new KafkaBulkConsumer({
 	topic: 'my-topic',
 	batchSize: 100,
 	flushIntervalMs: 5000,
-	processBatch: async (messages) => {
+	flushAction: async (messages) => {
 		console.log('processing batch of', messages.length);
 	},
 });
 
 await consumer.start();
-// await consumer.stop() when shutting down
+
+// Flush the buffer
+await consumer.flush()
+// Later, when shutting down
+await consumer.stop();
 ```
 
 CommonJS (require):
@@ -86,13 +92,17 @@ const consumer = new KafkaBulkConsumer({
 	topic: 'my-topic',
 	batchSize: 100,
 	flushIntervalMs: 5000,
-	processBatch: async (messages) => {
+	flushAction: async (messages) => {
 		console.log('processing batch of', messages.length);
 	},
 });
 
-consumer.start();
-// consumer.stop() when shutting down
+await consumer.start();
+
+// Flush the buffer
+await consumer.flush()
+// Later, when shutting down
+await consumer.stop();
 ```
 
 Notes:
@@ -108,10 +118,10 @@ TypeScript type (approx):
 - `topic: string` — topic to subscribe to.
 - `batchSize?: number` — maximum messages per batch (default: 50).
 - `flushIntervalMs?: number` — maximum time in ms to wait before flushing buffered messages (default: 5000).
-- `processBatch: (messages: T[]) => Promise<void>` — async handler that receives an array of buffered messages.
+- `flushAction: (messages: T[]) => Promise<void>` — async handler that receives an array of buffered messages.
 
 Behavior:
-- Buffer messages in memory until `batchSize` is reached or `flushIntervalMs` elapses, then call `processBatch` with the current buffer.
+- Buffer messages in memory until `batchSize` is reached or `flushIntervalMs` elapses, then call `flushAction` with the current buffer.
 - On consumer start we attempt to connect with retries/backoff to tolerate broker startup races.
 
 ## Development

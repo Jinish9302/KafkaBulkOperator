@@ -1,4 +1,4 @@
-import KafkaBulkConsumer from "../src/modules/baseModule";
+import KafkaBulkConsumer from "../src/baseModule";
 
 let consumer = new KafkaBulkConsumer({
   clientId: "test-client",
@@ -8,7 +8,7 @@ let consumer = new KafkaBulkConsumer({
   topic: "test-topic",
   batchSize: 10,
   flushIntervalMs: 10000,
-  processBatch: async (messages: any[]) => {
+  flushAction: async (messages: any[]) => {
     console.log("Processing batch of messages:", messages);
   }}
 );

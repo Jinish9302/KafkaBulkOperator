@@ -1,32 +1,32 @@
 import { Kafka, Consumer, EachMessagePayload } from "kafkajs";
+import { BufferManager, BufferOptions } from "./modules/buffer";
 
 export interface BulkConsumerOptions<T> {
   clientId: string;
   brokers: string[];
   groupId: string;
   topic: string;
-  batchSize?: number;       // max items per bulk
+  batchSize?: number; // max items per bulk
   flushIntervalMs?: number; // max wait time before flush
-  processBatch: (messages: T[]) => Promise<void>; // user-defined function
+  flushAction: (messages: T[]) => Promise<void>; // user-defined function
 }
 
 export class KafkaBulkConsumer<T = any> {
   private kafka: Kafka;
   private consumer: Consumer;
-  private buffer: any[] = [];
-  private batchSize: number;
-  private flushIntervalMs: number;
-  private timer?: NodeJS.Timeout;
-
+  private bufferManager: BufferManager;
+  isConnected: boolean = false;
   constructor(private options: BulkConsumerOptions<T>) {
     this.kafka = new Kafka({
       clientId: options.clientId,
       brokers: options.brokers,
     });
-
+    this.bufferManager = new BufferManager({
+      flushAction: options.flushAction,
+      flushIntervalMs: options.flushIntervalMs,
+      maxBufferItems: options.batchSize,
+    } as BufferOptions);
     this.consumer = this.kafka.consumer({ groupId: options.groupId });
-    this.batchSize = options.batchSize || 50;
-    this.flushIntervalMs = options.flushIntervalMs || 5000;
   }
 
   async start() {
@@ -37,6 +37,7 @@ export class KafkaBulkConsumer<T = any> {
     while (true) {
       try {
         await this.consumer.connect();
+        this.isConnected = true;
         break;
       } catch (err) {
         attempt++;
@@ -45,56 +46,56 @@ export class KafkaBulkConsumer<T = any> {
           throw err;
         }
         const delay = Math.min(10000, baseDelayMs * 2 ** (attempt - 1));
-        console.warn(`Consumer connect failed (attempt ${attempt}/${maxConnectRetries}), retrying in ${delay}ms`, err);
+        console.warn(
+          `Consumer connect failed (attempt ${attempt}/${maxConnectRetries}), retrying in ${delay}ms`,
+          err
+        );
         await new Promise((res) => setTimeout(res, delay));
       }
     }
-    await this.consumer.subscribe({ topic: this.options.topic, fromBeginning: false });
+    try {
+      await this.consumer.subscribe({
+        topic: this.options.topic,
+        fromBeginning: false,
+      });
+    } catch(err) {
+      console.error("Failed to subscribe to topic:", err);
+      return;
+    }
 
     await this.consumer.run({
       eachMessage: async ({ message }: EachMessagePayload) => {
         const value = message.value?.toString();
         if (value) {
           try {
-            this.buffer.push(value);
+            this.bufferManager.push(value);
           } catch (err) {
             console.error("Failed to parse message:", value);
           }
         }
-
-        if (this.buffer.length >= this.batchSize) {
-          console.log(`Buffer reached batch size of ${this.batchSize}, flushing ${this.buffer.length} messages`);
-          await this.flush();
-        }
       },
     });
-
-    this.startTimer();
   }
-
-  private startTimer() {
-    this.timer = setInterval(async () => {
-      if (this.buffer.length > 0) {
-        await this.flush();
-      }
-    }, this.flushIntervalMs);
-  }
-
-  private async flush() {
-    const batch = [...this.buffer];
-    this.buffer = [];
-
+  async stop() {
+    this.bufferManager.clearFlushTimer()
     try {
-      await this.options.processBatch(batch);
+      await this.bufferManager.flush();
     } catch (err) {
-      console.error("Error processing batch:", err);
-      // Retry logic can be added here
+      console.error("Error processing the buffer on shutdown:", err);
+    }
+    try {
+      await this.consumer.disconnect();
+      this.isConnected = false;
+    } catch (err) {
+      console.error("Failed to disconnect consumer:", err);
     }
   }
-
-  async stop() {
-    if (this.timer) clearInterval(this.timer);
-    await this.consumer.disconnect();
+  async flush() {
+    try {
+      await this.bufferManager.flush();
+    } catch (err) {
+      console.error("Error processing the buffer:", err);
+    }
   }
 }
 export default KafkaBulkConsumer;

@@ -34,34 +34,38 @@ let testInitialize = async () => {
     console.error("Failed to connect to Kafka Admin:", err);
   }
   try {
-    await producer.connect();
-  } catch (err) {
-    console.error("Failed to connect to Kafka Producer:", err);
-  }
-  try {
-    await consumer.start();
-  } catch (err) {
-    console.error("Failed to connect to Kafka Consumer:", err);
-  }
-  try {
-    if (!(await admin.listTopics()).includes("test-topic")) {
+    let topicList = await admin.listTopics();
+    if (!topicList.includes("test-topic")) {
       await admin.createTopics({
         topics: [
           { topic: "test-topic", numPartitions: 1, replicationFactor: 1 },
         ],
       });
+      console.log("test-topic created");
     } else {
       console.log("test-topic already exists");
     }
   } catch (err) {
     console.error("Failed to create Kafka topic:", err);
   }
+  try {
+    await producer.connect();
+    console.log("Connected to Kafka Producer");
+  } catch (err) {
+    console.error("Failed to connect to Kafka Producer:", err);
+  }
+  try {
+    await consumer.start();
+    console.log("Connected to Kafka Consumer");
+  } catch (err) {
+    console.error("Failed to connect to Kafka Consumer:", err);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 };
 
 let testCleanup = async () => {
   await producer.disconnect();
   await admin.disconnect();
-  await consumer.stop();
 };
 
 beforeAll(() => {

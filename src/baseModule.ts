@@ -65,7 +65,7 @@ export class KafkaBulkConsumer<T> {
 
     await this.consumer.run({
       eachMessage: async ({ message }: EachMessagePayload) => {
-        const value = message.value?.toString();
+        const value: T | undefined = message.value ? (message.value.toString() as T) : undefined;
         if (value) {
           try {
             this.bufferManager.push(value);

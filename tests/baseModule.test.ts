@@ -2,12 +2,12 @@ import { KafkaBulkConsumer } from "../src/baseModule";
 import { Kafka, Producer, Admin, Partitioners } from "kafkajs";
 
 // jest.useFakeTimers();
-let consumer: KafkaBulkConsumer;
+let consumer: KafkaBulkConsumer<string>;
 let producer: Producer;
 let admin: Admin;
 let kafka: Kafka;
-let sampleSink: any[] = []
-let testInitialize = async () => {
+let sampleSink: string[] = []
+const testInitialize = async () => {
   kafka = new Kafka({
     clientId: "test-client",
     brokers: ["127.0.0.1:9092"],
@@ -16,14 +16,14 @@ let testInitialize = async () => {
   producer = kafka.producer({
     createPartitioner: Partitioners.LegacyPartitioner,
   });
-  consumer = new (KafkaBulkConsumer as any)({
+  consumer = new KafkaBulkConsumer<string>({
     clientId: "test-client",
     brokers: ["127.0.0.1:9092"],
     groupId: "test-group",
     topic: "test-topic",
     batchSize: 10,
     flushIntervalMs: 1000,
-    flushAction: async (messages: any[]) => {
+    flushAction: async (messages: string[]) => {
       console.log("recieved messages: ", messages)
       sampleSink.push(...messages);
     },
@@ -34,7 +34,7 @@ let testInitialize = async () => {
     console.error("Failed to connect to Kafka Admin:", err);
   }
   try {
-    let topicList = await admin.listTopics();
+    const topicList = await admin.listTopics();
     if (!topicList.includes("test-topic")) {
       await admin.createTopics({
         topics: [
@@ -63,7 +63,7 @@ let testInitialize = async () => {
   await new Promise((resolve) => setTimeout(resolve, 1000));
 };
 
-let testCleanup = async () => {
+const testCleanup = async () => {
   await producer.disconnect();
   await admin.disconnect();
 };

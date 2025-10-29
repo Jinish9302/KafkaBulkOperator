@@ -1,6 +1,6 @@
 import { KafkaBulkConsumer } from "@jtriv9427/kafkabulkoperator";
 
-let consumer = new KafkaBulkConsumer({
+const consumer = new KafkaBulkConsumer<string>({
   clientId: "test-client",
   // Use IPv4 loopback to avoid Windows resolving localhost to ::1 (IPv6) which may be refused
   brokers: ["127.0.0.1:9092"],
@@ -8,7 +8,7 @@ let consumer = new KafkaBulkConsumer({
   topic: "test-topic",
   batchSize: 10,
   flushIntervalMs: 5000,
-  processBatch: async (messages: any[]) => {
+  flushAction: async (messages: string[]) => {
     console.log("Processing batch of messages:", messages);
   },
 });

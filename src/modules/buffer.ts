@@ -1,20 +1,20 @@
-export interface BufferOptions {
+export interface BufferOptions<T> {
   maxBufferItems?: number;
   maxBufferSizeInBytes?: number;
   flushIntervalMs?: number;
-  customThresholds?: Array<Function>; // list of user-defined threshold functions that take the current buffer as argument and return boolean
-  flushAction: (batch: any[]) => Promise<void>; // callback when threshold is reached with array of buffered items on argument
+  customThresholds?: Array<(buffer: T[]) => boolean>; // list of user-defined threshold functions that take the current buffer as argument and return boolean
+  flushAction: (batch: T[]) => Promise<void>; // callback when threshold is reached with array of buffered items on argument
 }
-export class BufferManager {
+export class BufferManager<T> {
   private maxBufferItems?: number;
   private maxBufferSizeInBytes?: number;
-  private customThresholds?: Array<Function>; // list of user-defined threshold functions
+  private customThresholds?: Array<(buffer: T[]) => boolean>; // list of user-defined threshold functions
   private bufferSizeInBytes: number = 0;
   private flushIntervalMs?: number;
   private flushTimer?: NodeJS.Timeout;
-  private flushAction: (buffer: any[]) => Promise<void> | void; // expect a promis<void> return type or a void return type
-  private buffer: any[] = [];
-  constructor(private options: BufferOptions) {
+  private flushAction: (buffer: T[]) => Promise<void> | void; // expect a promis<void> return type or a void return type
+  private buffer: T[] = [];
+  constructor(private options: BufferOptions<T>) {
     if (
       !options.maxBufferItems &&
       !options.maxBufferSizeInBytes &&
@@ -72,7 +72,7 @@ export class BufferManager {
     this.flushIntervalMs = newFlushIntervalMs;
     this.updateFlushTimer();
   }
-  updateCustomThresholds(newCustomThresholds: Array<Function>) {
+  updateCustomThresholds(newCustomThresholds: Array<(buffer: T[]) => boolean>) {
     this.customThresholds = newCustomThresholds;
   }
   isThresholdReached(): boolean {
@@ -94,7 +94,7 @@ export class BufferManager {
       console.error("Error processing the buffer:", err);
     }
   }
-  push(item: any) {
+  push(item: T) {
     this.buffer.push(item);
     if (this.isThresholdReached()) {
       this.flush();

@@ -11,10 +11,10 @@ export interface BulkConsumerOptions<T> {
   flushAction: (messages: T[]) => Promise<void>; // user-defined function
 }
 
-export class KafkaBulkConsumer<T = any> {
+export class KafkaBulkConsumer<T> {
   private kafka: Kafka;
   private consumer: Consumer;
-  private bufferManager: BufferManager;
+  private bufferManager: BufferManager<T>;
   isConnected: boolean = false;
   constructor(private options: BulkConsumerOptions<T>) {
     this.kafka = new Kafka({
@@ -25,7 +25,7 @@ export class KafkaBulkConsumer<T = any> {
       flushAction: options.flushAction,
       flushIntervalMs: options.flushIntervalMs,
       maxBufferItems: options.batchSize,
-    } as BufferOptions);
+    } as BufferOptions<T>);
     this.consumer = this.kafka.consumer({ groupId: options.groupId });
   }
 
@@ -65,12 +65,12 @@ export class KafkaBulkConsumer<T = any> {
 
     await this.consumer.run({
       eachMessage: async ({ message }: EachMessagePayload) => {
-        const value = message.value?.toString();
+        const value: T | undefined = message.value ? (message.value.toString() as T) : undefined;
         if (value) {
           try {
             this.bufferManager.push(value);
           } catch (err) {
-            console.error("Failed to parse message:", value);
+            console.error("Failed to parse message:", err);
           }
         }
       },
